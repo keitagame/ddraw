@@ -1,21 +1,39 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head prefix="og: https://ogp.me/ns#">
-  <meta property="og:url" content="https://keitagames.com">
-  <meta property="og:type" content="website"> 
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="google-site-verification" content="ao-F3lDZbS682FtS97r4io-MEHW1EhwTSx39CFQGhtg" />
+
+  <title>ドパ描き | DopamineDraw | ドーパミンドロー | dopagaki</title>
+  <meta name="description" content="待機時間のない現代的なオンラインピクセルキャンバス「ドパ描き」。無料でリアルタイムにドット絵を描いてみんなで共有しよう！">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://keitagames.com">
+  <link rel="icon" href="favicon.png" type="image/png">
+
+  <!-- OGP / SNS 設定 -->
+  <meta property="og:site_name" content="Dopamine Draw">
   <meta property="og:title" content="ドパ描き | ドパガキ専用place">
   <meta property="og:description" content="待機時間のない現代的なオンラインピクセルキャンバス、「ドパ描き」へ行こう">
-  <meta property="og:site_name" content="Dopamine Draw">
-  
-  <!-- OGP画像の設定 -->
-  <meta property="og:image" content="ogp.png">
-  
-  <!-- X（旧Twitter）用の追加設定（必要に応じて） -->
-  <meta name="twitter:card" content="DD">
-  <meta charset="utf-8">
-  <link rel="icon" href="favicon.png" type="image/png">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>ドパ描き | DopamineDraw</title>
+  <meta property="og:url" content="https://keitagames.com">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://keitagames.com/ogp.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- 構造化データ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "ドパ描き",
+    "alternateName": ["DopamineDraw", "ドパガキ専用place"],
+    "url": "https://keitagames.com",
+    "description": "待機時間のない現代的なオンラインピクセルキャンバス「ドパ描き」。",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "All",
+    "inLanguage": "ja"
+  }
+  </script>
   <style>
     :root {
       --bg: #000000; --fg: #1b1b1b; --bar: #ffffff; --line: #cfcfc8;
@@ -195,7 +213,6 @@ addServerBtn.addEventListener('click', () => {
 });
 
 
-// 64色カラーパレット
 const PAL = [
   // 1. モノクロ・グレー・茶系 (16色)
   '#ffffff', '#000000', '#1a1a1a', '#333333', '#555555', '#777777', '#999999', '#bbbbbb', '#dddddd',
