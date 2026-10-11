@@ -18,8 +18,13 @@
   <meta property="og:url" content="https://keitagames.com">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://keitagames.com/ogp.png">
-  <meta name="twitter:card" content="summary_large_image">
-
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="https://keitagames.com">
+  
+  <meta name="twitter:title" content="待機時間のないplace、「ドパ描き」">
+  <meta name="twitter:description" content="待機時間のない現代的なオンラインピクセルキャンバス、「ドパ描き」へ行こう">
+  <meta name="twitter:image" content="https://keitagames.com/ogp.png">
+  <meta name="twitter:site" content="@keita_sprint">
   <!-- 構造化データ -->
   <script type="application/ld+json">
   {
@@ -103,6 +108,56 @@
     #info button:hover, #info select:hover { background: var(--bg); }
     #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #c33; margin-right: 4px; flex-shrink: 0; }
     #dot.on { background: #2a9d4b; }
+
+    /* ---- チャット ---- */
+    #chatBtn { position: relative; }
+    #chatBadge {
+      position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px;
+      padding: 0 4px; box-sizing: border-box; border-radius: 8px;
+      background: #d32f2f; color: #fff; font-size: 10px; line-height: 16px; text-align: center;
+    }
+    #chatBadge[hidden] { display: none; }
+    #chat {
+      position: fixed; left: 8px; bottom: calc(var(--bar-h, 150px) + 8px);
+      width: min(360px, calc(100% - 16px)); max-height: min(40vh, 320px);
+      display: flex; flex-direction: column; z-index: 5;
+      background: var(--bar);
+      background: color-mix(in srgb, var(--bar) 90%, transparent);
+      color: var(--fg); border: 1px solid var(--line); border-radius: 6px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3); overflow: hidden;
+    }
+    #chat[hidden] { display: none; }
+    #chatHead {
+      display: flex; align-items: center; gap: 6px; padding: 4px 8px;
+      border-bottom: 1px solid var(--line); font-size: 12px;
+    }
+    #chatDot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #c33; flex-shrink: 0; }
+    #chatDot.on { background: #2a9d4b; }
+    #chatState { flex: 1; min-width: 0; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #chatHead button {
+      border: 0; background: transparent; color: var(--fg); cursor: pointer;
+      font-size: 12px; padding: 2px 4px; max-width: 120px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #chatLog {
+      flex: 1; min-height: 60px; overflow-y: auto; overscroll-behavior: contain;
+      padding: 6px 8px; font-size: 13px; line-height: 1.45; word-break: break-word;
+      user-select: text; -webkit-user-select: text;
+    }
+    #chatLog .t { opacity: 0.5; font-size: 11px; margin-right: 6px; }
+    #chatLog b { margin-right: 6px; }
+    #chatForm { display: flex; gap: 6px; padding: 6px; border-top: 1px solid var(--line); }
+    #chatInput {
+      flex: 1; min-width: 0; height: 32px; box-sizing: border-box; padding: 0 8px;
+      border: 1px solid var(--line); border-radius: 4px;
+      background: var(--bar); color: var(--fg); font-size: 16px;
+      user-select: text; -webkit-user-select: text;   /* iOS Safariで入力できなくなるのを防ぐ */
+    }
+    #chatSend {
+      height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px;
+      background: var(--bar); color: var(--fg); font-size: 14px; cursor: pointer;
+    }
+    #chatSend:disabled { opacity: 0.5; cursor: default; }
   </style>
 </head>
 <body>
@@ -117,9 +172,25 @@
       <!-- サーバー選択UI -->
       <select id="serverSelect" aria-label="サーバー選択"></select>
       <button id="addServerBtn" title="サーバーURLを追加">＋URL</button>
+      <button id="chatBtn" aria-label="チャット">💬<span id="chatBadge" hidden></span></button>
       <button id="zout" aria-label="縮小">－</button>
       <button id="zin" aria-label="拡大">＋</button>
     </div>
+  </div>
+</div>
+
+<!-- チャットパネル(#viewの外に置くことで、操作がキャンバス描画に伝わらない) -->
+<div id="chat" hidden>
+  <div id="chatHead">
+    <i id="chatDot"></i><b>チャット</b>
+    <span id="chatState"></span>
+    <button id="chatName" title="名前を変更">名無し ✎</button>
+    <button id="chatClose" aria-label="閉じる">×</button>
+  </div>
+  <div id="chatLog" aria-live="polite"></div>
+  <div id="chatForm">
+    <input id="chatInput" type="text" maxlength="200" placeholder="メッセージを入力" autocomplete="off" enterkeyhint="send">
+    <button id="chatSend">送信</button>
   </div>
 </div>
 
@@ -526,6 +597,7 @@ function connect(apiUrl, seq) {
 }
 
 async function loadAndConnectServer(apiUrl) {
+  connectChat(apiUrl);   // チャットは盤面の読み込み結果に関係なく接続する
   if (currentEventSource) {
     currentEventSource.close();
     currentEventSource = null;
@@ -544,6 +616,170 @@ async function loadAndConnectServer(apiUrl) {
     status.textContent = '接続失敗';
   }
 }
+
+// ---- チャット (chat.cgi / SSE) ----
+const chatEl = document.getElementById('chat');
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+const chatSend = document.getElementById('chatSend');
+const chatBtn = document.getElementById('chatBtn');
+const chatBadge = document.getElementById('chatBadge');
+const chatDot = document.getElementById('chatDot');
+const chatState = document.getElementById('chatState');
+const chatNameBtn = document.getElementById('chatName');
+const barEl = document.getElementById('bar');
+
+// 下部バーの高さに合わせてチャットパネルの位置を調整
+function updateBarH() {
+  document.documentElement.style.setProperty('--bar-h', barEl.offsetHeight + 'px');
+}
+updateBarH();
+if (window.ResizeObserver) new ResizeObserver(updateBarH).observe(barEl);
+window.addEventListener('resize', updateBarH);
+
+// 名前
+let chatName = '';
+try { chatName = localStorage.getItem('dd_name') || ''; } catch (e) {}
+function renderChatName() { chatNameBtn.textContent = (chatName || '名無し') + ' ✎'; }
+chatNameBtn.onclick = () => {
+  const v = prompt('チャットで表示する名前 (20文字まで):', chatName);
+  if (v === null) return;
+  chatName = v.trim().slice(0, 20);
+  try { localStorage.setItem('dd_name', chatName); } catch (e) {}
+  renderChatName();
+};
+renderChatName();
+
+// 開閉 & 未読バッジ
+let chatOpen = window.innerWidth >= 700;   // 広い画面では最初から開く
+let unread = 0;
+function updateBadge() {
+  chatBadge.hidden = unread === 0;
+  chatBadge.textContent = unread > 99 ? '99+' : String(unread);
+}
+function setChatOpen(v) {
+  chatOpen = v;
+  chatEl.hidden = !v;
+  if (v) {
+    unread = 0; updateBadge();
+    chatLog.scrollTop = chatLog.scrollHeight;
+    if (window.matchMedia('(pointer: fine)').matches) chatInput.focus();
+  }
+}
+chatBtn.onclick = () => setChatOpen(!chatOpen);
+document.getElementById('chatClose').onclick = () => setChatOpen(false);
+
+// 受信
+const pad2 = n => String(n).padStart(2, '0');
+let chatApi = '';
+let chatES = null;
+let chatTimer = null;
+let chatRetry = 0;
+let chatLive = false;      // 過去ログの受信が終わってから true
+let lastChatId = 0;
+
+function chatUrlFor(api) { return api.replace(/[^\/]*$/, 'chat.cgi'); }
+
+function addChatMessage(m) {
+  if (!m || !(m.id > lastChatId)) return;   // 再接続時の重複を除外
+  lastChatId = m.id;
+  const atBottom = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 24;
+
+  const row = document.createElement('div');
+  const t = document.createElement('span');
+  const d = new Date(m.t * 1000);
+  t.className = 't';
+  t.textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  const n = document.createElement('b');
+  n.textContent = m.n;               // textContentなのでHTMLは解釈されない
+  const x = document.createElement('span');
+  x.textContent = m.m;
+  row.append(t, n, x);
+  chatLog.appendChild(row);
+  while (chatLog.children.length > 200) chatLog.removeChild(chatLog.firstChild);
+
+  if (atBottom) chatLog.scrollTop = chatLog.scrollHeight;
+  if (!chatOpen && chatLive) { unread++; updateBadge(); }
+}
+
+function disconnectChat() {
+  clearTimeout(chatTimer);
+  if (chatES) { chatES.close(); chatES = null; }
+}
+
+function openChatStream() {
+  const es = new EventSource(`${chatApi}?a=stream&from=${lastChatId}`);
+  chatES = es;
+  es.onopen = () => {
+    chatDot.className = 'on'; chatState.textContent = '';
+    chatLive = false; chatRetry = 0;
+  };
+  es.onmessage = (e) => { try { addChatMessage(JSON.parse(e.data)); } catch (_) {} };
+  es.addEventListener('ready', () => {
+    chatLive = true;
+    chatLog.scrollTop = chatLog.scrollHeight;
+  });
+  es.onerror = () => {
+    chatDot.className = '';
+    if (es.readyState === EventSource.CLOSED && chatES === es) {
+      // ブラウザが諦めた場合(404など)は間隔を空けて自前で再接続
+      chatState.textContent = '接続できません';
+      const wait = Math.min(30000, 2000 * Math.pow(2, chatRetry++));
+      chatTimer = setTimeout(() => { if (chatES === es) openChatStream(); }, wait);
+    } else {
+      chatState.textContent = '再接続中';   // サーバー側の接続時間切れ時もここ。すぐ自動再接続される
+    }
+  };
+}
+
+function connectChat(apiUrl) {
+  disconnectChat();
+  chatApi = chatUrlFor(apiUrl);
+  lastChatId = 0; chatRetry = 0; chatLive = false;
+  chatLog.textContent = '';
+  unread = 0; updateBadge();
+  chatDot.className = ''; chatState.textContent = '接続中...';
+  openChatStream();
+}
+
+// 送信
+async function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text || !chatApi) return;
+  chatSend.disabled = true;
+  let msg = '';
+  try {
+    const r = await fetch(chatApi, {
+      method: 'POST',
+      body: new URLSearchParams({ a: 'post', name: chatName, text })
+    });
+    if (r.ok) {
+      chatInput.value = '';
+    } else {
+      try { msg = (await r.json()).error || ''; } catch (_) {}
+      msg = msg || '送信に失敗しました';
+    }
+  } catch (_) {
+    msg = '送信に失敗しました';
+  }
+  chatSend.disabled = false;
+  if (msg) {
+    chatState.textContent = msg;
+    setTimeout(() => { if (chatState.textContent === msg) chatState.textContent = ''; }, 3000);
+  }
+  chatInput.focus();
+}
+chatSend.onclick = sendChat;
+chatSend.addEventListener('mousedown', (e) => e.preventDefault());   // 入力欄のフォーカスを維持
+chatInput.addEventListener('keydown', (e) => {
+  // IME変換確定のEnterでは送信しない
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    sendChat();
+  }
+});
+
+setChatOpen(chatOpen);
 
 // 起動処理
 loadAndConnectServer(currentApi);
